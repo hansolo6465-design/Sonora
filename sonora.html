@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SONORA — Sound, made visible.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#08080a; --bg2:#0f0f13;
+  --violet:#8b6bff; --blue:#4fd2ff; --magenta:#ff5ec4; --amber:#ff8a3d;
+  --ink:#f2f1f6; --ink-dim:#8d8b98; --line:rgba(255,255,255,0.09);
+  --panel:rgba(14,14,18,0.72);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%; background:var(--bg); overscroll-behavior:none;}
+body{
+  font-family:'Inter',sans-serif; color:var(--ink);
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+::selection{background:var(--violet); color:#fff;}
+h1,h2,.display{font-family:'Space Grotesk',sans-serif;}
+
+#webgl{position:fixed; inset:0; width:100%; height:100%; z-index:0;}
+.veil{position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at 50% 30%, transparent 0%, rgba(8,8,10,0.35) 60%, rgba(8,8,10,0.92) 100%);}
+
+nav{position:fixed; top:0; left:0; right:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
+  padding:22px clamp(20px,5vw,56px); padding-top:calc(22px + env(safe-area-inset-top,0px));
+  mix-blend-mode:normal;}
+.logo{font-weight:600; letter-spacing:0.02em; font-size:1.05rem;}
+.logo span{color:var(--violet);}
+.navlinks{display:flex; gap:28px; font-size:0.9rem; color:var(--ink-dim);}
+.navlinks a{color:inherit; text-decoration:none; transition:color .25s;}
+.navlinks a:hover{color:var(--ink);}
+.enter-btn{border:1px solid var(--line); padding:9px 18px; border-radius:999px; font-size:0.85rem; color:var(--ink);
+  text-decoration:none; transition:border-color .25s, background .25s;}
+.enter-btn:hover{border-color:var(--violet); background:rgba(139,107,255,0.1);}
+
+main{position:relative; z-index:5;}
+section{min-height:100vh; display:flex; flex-direction:column; justify-content:center; position:relative;}
+
+.hero{align-items:flex-start; padding:0 clamp(20px,6vw,64px);}
+.eyebrow{font-size:0.82rem; color:var(--ink-dim); letter-spacing:0.04em; margin-bottom:18px;}
+.hero h1{font-size:clamp(2.6rem,8vw,6.2rem); line-height:0.98; font-weight:700; max-width:14ch;}
+.hero .sub{margin-top:22px; max-width:38ch; font-size:1.05rem; color:var(--ink-dim); line-height:1.6;}
+.hero .ctas{display:flex; gap:14px; margin-top:38px; flex-wrap:wrap;}
+.btn{font-family:'Inter',sans-serif; font-size:0.92rem; padding:14px 26px; border-radius:999px; cursor:pointer;
+  border:1px solid transparent; transition:transform .2s, opacity .2s;}
+.btn:active{transform:scale(0.97);}
+.btn-primary{background:linear-gradient(135deg,var(--violet),var(--magenta)); color:#fff; border:none;}
+.btn-primary:hover{opacity:0.9;}
+.btn-ghost{border:1px solid var(--line); color:var(--ink); background:transparent;}
+.btn-ghost:hover{border-color:var(--ink-dim);}
+.scroll-hint{position:absolute; bottom:38px; left:clamp(20px,6vw,64px); font-size:0.75rem; color:var(--ink-dim);
+  display:flex; align-items:center; gap:10px;}
+.scroll-line{width:1px; height:34px; background:linear-gradient(var(--ink-dim),transparent); animation:scrollline 2s ease-in-out infinite;}
+@keyframes scrollline{0%{opacity:0.2;}50%{opacity:1;}100%{opacity:0.2;}}
+
+.story{padding:0 clamp(20px,6vw,64px); align-items:center; text-align:center;}
+.story .tag{font-size:0.8rem; color:var(--ink-dim); margin-bottom:16px;}
+.story h2{font-size:clamp(1.8rem,5vw,3.4rem); font-weight:600; max-width:16ch; margin:0 auto; line-height:1.15;}
+.story p{margin-top:18px; color:var(--ink-dim); max-width:44ch; margin-left:auto; margin-right:auto; line-height:1.6;}
+
+.studio{min-height:100vh; padding:110px clamp(16px,4vw,40px) 40px; align-items:stretch;}
+.studio-head{margin-bottom:20px; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap;}
+.studio-head h2{font-size:clamp(1.5rem,3vw,2.1rem); font-weight:600;}
+.studio-head p{color:var(--ink-dim); font-size:0.92rem; margin-top:6px;}
+
+.account-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--panel); border:1px solid var(--line);
+  border-radius:12px; padding:10px 12px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);}
+.account-bar input{background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:8px; padding:7px 10px;
+  color:var(--ink); font-size:0.8rem; font-family:inherit; width:150px;}
+.account-bar .btn{padding:8px 14px; font-size:0.78rem;}
+.account-msg{font-size:0.74rem; color:var(--ink-dim); width:100%; margin-top:2px;}
+.account-msg.err{color:#ff8a8a;}
+.account-msg.ok{color:#3ddc84;}
+.acct-user{font-size:0.82rem; color:var(--ink); display:flex; align-items:center; gap:10px;}
+.acct-user .dot{width:6px; height:6px; border-radius:50%; background:#3ddc84; display:inline-block;}
+
+.panels{display:grid; grid-template-columns:260px 1fr 280px; gap:16px; flex:1;}
+@media (max-width:980px){.panels{grid-template-columns:1fr;}}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px); padding:18px;}
+.panel h3{font-size:0.72rem; letter-spacing:0.06em; color:var(--ink-dim); font-weight:600; margin-bottom:16px; text-transform:uppercase;}
+
+.slider-row{margin-bottom:16px;}
+.slider-row label{display:flex; justify-content:space-between; font-size:0.82rem; color:var(--ink); margin-bottom:8px;}
+.slider-row label span{color:var(--ink-dim); font-variant-numeric:tabular-nums;}
+input[type=range]{-webkit-appearance:none; width:100%; height:3px; background:var(--line); border-radius:2px; outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--violet); cursor:pointer; box-shadow:0 0 10px rgba(139,107,255,0.7);}
+input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--violet); border:none; cursor:pointer;}
+
+.presets{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;}
+.preset-btn{flex:1; min-width:70px; padding:9px 6px; border-radius:10px; border:1px solid var(--line); background:transparent;
+  color:var(--ink-dim); font-size:0.78rem; cursor:pointer; transition:all .2s;}
+.preset-btn.active{border-color:var(--violet); color:#fff; background:rgba(139,107,255,0.14);}
+
+.colors{display:flex; gap:10px; margin-top:4px;}
+.swatch{width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform .2s;}
+.swatch.active{border-color:#fff; transform:scale(1.12);}
+
+.center-panel{display:flex; flex-direction:column; justify-content:flex-end; min-height:340px;}
+.canvas-note{font-size:0.75rem; color:var(--ink-dim); text-align:center; margin-top:auto;}
+
+.reset-btn{width:100%; padding:11px; border-radius:10px; border:1px solid var(--line); background:transparent;
+  color:var(--ink-dim); font-size:0.82rem; cursor:pointer; margin-top:4px;}
+.reset-btn:hover{color:var(--ink); border-color:var(--ink-dim);}
+
+.upload-zone{border:1px dashed var(--line); border-radius:12px; padding:20px 12px; text-align:center; cursor:pointer;
+  font-size:0.82rem; color:var(--ink-dim); transition:border-color .2s; margin-bottom:16px;}
+.upload-zone:hover{border-color:var(--violet); color:var(--ink);}
+.upload-zone.active{border-color:var(--blue); color:var(--ink);}
+#fileInput{display:none;}
+
+.track-name{font-size:0.82rem; margin-bottom:14px; color:var(--ink); word-break:break-all; min-height:1.2em;}
+
+.player-controls{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+.play-btn{width:40px; height:40px; border-radius:50%; border:none; background:var(--violet); color:#fff;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.9rem;}
+.play-btn:disabled{opacity:0.35; cursor:not-allowed;}
+.time{font-size:0.72rem; color:var(--ink-dim); font-variant-numeric:tabular-nums; min-width:34px;}
+#seek{flex:1;}
+
+.spectrum{height:64px; display:flex; align-items:flex-end; gap:2px; margin-bottom:16px; border-radius:8px; overflow:hidden;}
+.spectrum div{flex:1; background:linear-gradient(180deg,var(--violet),var(--magenta)); border-radius:2px 2px 0 0; min-height:2px; transition:height .05s linear;}
+
+.status-line{font-size:0.72rem; color:var(--ink-dim); display:flex; align-items:center; gap:6px;}
+.dot{width:6px; height:6px; border-radius:50%; background:var(--ink-dim); display:inline-block;}
+.dot.live{background:#3ddc84; box-shadow:0 0 6px #3ddc84;}
+
+.errbox{font-size:0.75rem; color:#ff8a8a; margin-top:8px; display:none;}
+
+footer{padding:40px clamp(20px,6vw,64px) 60px; color:var(--ink-dim); font-size:0.8rem; text-align:center; position:relative; z-index:5;}
+
+@media (prefers-reduced-motion:reduce){
+  .scroll-line{animation:none;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="webgl"></canvas>
+<div class="veil"></div>
+
+<nav>
+  <div class="logo">SONORA<span>.</span></div>
+  <div class="navlinks">
+    <a href="#story">Anatomy of Sound</a>
+    <a href="#studio">Studio</a>
+  </div>
+  <a href="#studio" class="enter-btn">Enter Studio</a>
+</nav>
+
+<main>
+  <section class="hero" id="hero">
+    <div class="eyebrow">Interactive 3D Audio Visualization</div>
+    <h1>Sound,<br>made visible.</h1>
+    <p class="sub">Explore sound through immersive 3D visuals. Upload a track and watch frequency become form — in real time, entirely in your browser.</p>
+    <div class="ctas">
+      <a href="#studio" class="btn btn-primary">Create Visualization</a>
+      <a href="#story" class="btn btn-ghost">Explore the Experience</a>
+    </div>
+    <div class="scroll-hint"><div class="scroll-line"></div>Scroll</div>
+  </section>
+
+  <section class="story" id="story">
+    <div class="tag">Every frequency has a form</div>
+    <h2>A waveform is just vibration, made patient enough to look at.</h2>
+    <p>Bass pushes the surface outward. Mids twist it. Treble scatters light through the particle field around it. Nothing you see below is pre-rendered — it's drawn from the audio itself, thirty to sixty times a second.</p>
+  </section>
+
+  <section class="studio" id="studio">
+    <div class="studio-head">
+      <div>
+        <h2>The Studio</h2>
+        <p>Upload a track, then shape how it looks.</p>
+      </div>
+      <div class="account-bar" id="accountBar">
+        <div id="authForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="email" id="authEmail" placeholder="Email">
+          <input type="password" id="authPass" placeholder="Password">
+          <button class="btn btn-ghost" id="loginBtn">Log In</button>
+          <button class="btn btn-ghost" id="signupBtn">Sign Up</button>
+          <button class="btn btn-ghost" id="testConnBtn" type="button">Test Connection</button>
+          <button class="btn btn-ghost" id="testLoginBtn" type="button">Test Login (raw)</button>
+        </div>
+        <div id="authUser" class="acct-user" style="display:none;">
+          <span class="dot"></span><span id="userEmail"></span>
+          <button class="btn btn-ghost" id="logoutBtn" style="padding:6px 12px; font-size:0.76rem;">Log Out</button>
+        </div>
+        <div class="account-msg" id="authMsg"></div>
+      </div>
+    </div>
+    <div class="panels">
+      <div class="panel" id="controlsPanel">
+        <h3>Visual Controls</h3>
+        <div class="presets" id="presets">
+          <button class="preset-btn active" data-preset="nebula">Nebula</button>
+          <button class="preset-btn" data-preset="pulse">Pulse</button>
+          <button class="preset-btn" data-preset="vortex">Vortex</button>
+        </div>
+        <div class="slider-row"><label>Bass Sensitivity <span id="v-bass">1.0</span></label>
+          <input type="range" id="bass" min="0" max="3" step="0.1" value="1"></div>
+        <div class="slider-row"><label>Distortion <span id="v-dist">1.0</span></label>
+          <input type="range" id="dist" min="0" max="3" step="0.1" value="1"></div>
+        <div class="slider-row"><label>Rotation Speed <span id="v-rot">1.0</span></label>
+          <input type="range" id="rot" min="0" max="3" step="0.1" value="1"></div>
+        <div class="slider-row"><label>Particle Density <span id="v-part">1.0</span></label>
+          <input type="range" id="part" min="0.2" max="2" step="0.1" value="1"></div>
+        <h3 style="margin-top:6px;">Accent</h3>
+        <div class="colors" id="colors">
+          <div class="swatch active" data-color="#8b6bff" style="background:#8b6bff"></div>
+          <div class="swatch" data-color="#ff8a3d" style="background:#ff8a3d"></div>
+          <div class="swatch" data-color="#4fd2ff" style="background:#4fd2ff"></div>
+          <div class="swatch" data-color="#ff5ec4" style="background:#ff5ec4"></div>
+        </div>
+        <button class="reset-btn" id="resetBtn" style="margin-top:18px;">Reset Settings</button>
+      </div>
+
+      <div class="panel center-panel">
+        <div class="canvas-note">Drag to orbit the scene · visuals render on the fixed 3D canvas behind this page</div>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <input type="text" id="projectName" placeholder="Untitled project" style="flex:1; background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:var(--ink); font-size:0.85rem; font-family:inherit;">
+          <button class="btn btn-ghost" id="saveProjectBtn" style="padding:10px 18px; font-size:0.82rem;">Save</button>
+          <button class="btn btn-ghost" id="exportBtn" style="padding:10px 18px; font-size:0.82rem;">Export PNG</button>
+        </div>
+        <div id="projectList" style="margin-top:14px; display:flex; flex-direction:column; gap:8px; max-height:150px; overflow-y:auto;"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Audio</h3>
+        <div class="upload-zone" id="uploadZone">Click to upload audio<br><span style="opacity:0.6">MP3 · WAV · OGG</span></div>
+        <input type="file" id="fileInput" accept="audio/*">
+        <div class="track-name" id="trackName">No track loaded</div>
+        <div class="player-controls">
+          <button class="play-btn" id="playBtn" disabled>▶</button>
+          <span class="time" id="curTime">0:00</span>
+          <input type="range" id="seek" min="0" max="100" value="0" disabled>
+          <span class="time" id="durTime">0:00</span>
+        </div>
+        <div class="slider-row"><label>Volume <span id="v-vol">80%</span></label>
+          <input type="range" id="volume" min="0" max="100" value="80"></div>
+        <div class="spectrum" id="spectrum"></div>
+        <div class="status-line"><span class="dot" id="statusDot"></span><span id="statusText">Idle — no audio loaded</span></div>
+        <div class="errbox" id="errBox"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>SONORA — an original interactive audio visualization studio. Built with Three.js, the Web Audio API and GSAP.</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- THREE.JS SCENE ---------- */
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0,0,7);
+
+const ambient = new THREE.AmbientLight(0x666666, 1.2);
+scene.add(ambient);
+const key = new THREE.PointLight(0x8b6bff, 3, 20);
+key.position.set(4,3,5);
+scene.add(key);
+const rim = new THREE.PointLight(0xff8a3d, 2, 20);
+rim.position.set(-4,-2,-3);
+scene.add(rim);
+
+// glow sphere (inner)
+let accent = new THREE.Color(0x8b6bff);
+const glowGeo = new THREE.SphereGeometry(1.6, 32, 32);
+const glowMat = new THREE.MeshBasicMaterial({color:0xff8a3d, transparent:true, opacity:0.35});
+const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+scene.add(glowMesh);
+
+// wireframe distorted icosphere
+const icoGeo = new THREE.IcosahedronGeometry(1.7, 5);
+const icoMat = new THREE.MeshStandardMaterial({color:0x111111, wireframe:true, emissive:0x8b6bff, emissiveIntensity:0.6, transparent:true, opacity:0.9});
+const icoMesh = new THREE.Mesh(icoGeo, icoMat);
+scene.add(icoMesh);
+const basePositions = icoGeo.attributes.position.array.slice();
+
+// particle field
+let particleCount = 1800;
+function buildParticles(count){
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    const r = 3 + Math.random()*5;
+    const theta = Math.random()*Math.PI*2;
+    const phi = Math.acos((Math.random()*2)-1);
+    pos[i*3] = r*Math.sin(phi)*Math.cos(theta);
+    pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+    pos[i*3+2] = r*Math.cos(phi);
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const mat = new THREE.PointsMaterial({color:0xffffff, size:0.02, transparent:true, opacity:0.6});
+  return new THREE.Points(geo, mat);
+}
+let particles = buildParticles(particleCount);
+scene.add(particles);
+
+// simple pseudo-noise (no external lib)
+function noise3(x,y,z,t){
+  return Math.sin(x*1.3+t)*Math.cos(y*1.7-t)*Math.sin(z*1.1+t*0.7);
+}
+
+/* ---------- AUDIO ENGINE ---------- */
+let audioCtx=null, analyser=null, source=null, audioEl=new Audio();
+audioEl.crossOrigin = "anonymous";
+let freqData=null, timeData=null;
+let bass=0,mid=0,treble=0,amp=0;
+
+function initAudioGraph(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.82;
+  source = audioCtx.createMediaElementSource(audioEl);
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+  timeData = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function analyze(){
+  if(!analyser) return;
+  analyser.getByteFrequencyData(freqData);
+  const n = freqData.length;
+  const bEnd = Math.floor(n*0.15), mEnd = Math.floor(n*0.5);
+  let b=0,m=0,t=0;
+  for(let i=0;i<bEnd;i++) b+=freqData[i];
+  for(let i=bEnd;i<mEnd;i++) m+=freqData[i];
+  for(let i=mEnd;i<n;i++) t+=freqData[i];
+  const target_b = b/bEnd/255, target_m = m/(mEnd-bEnd)/255, target_t = t/(n-mEnd)/255;
+  bass += (target_b-bass)*0.25;
+  mid += (target_m-mid)*0.25;
+  treble += (target_t-treble)*0.25;
+  amp = (bass+mid+treble)/3;
+}
+
+/* ---------- PARAMS ---------- */
+const params = {bassSens:1, dist:1, rotSpeed:1, partDensity:1, preset:'nebula', color:'#8b6bff'};
+
+/* ---------- RENDER LOOP ---------- */
+let mouseX=0, mouseY=0, scrollParallax=0;
+window.addEventListener('mousemove', e=>{
+  mouseX = (e.clientX/window.innerWidth - 0.5);
+  mouseY = (e.clientY/window.innerHeight - 0.5);
+});
+window.addEventListener('touchmove', e=>{
+  if(e.touches[0]){
+    mouseX = (e.touches[0].clientX/window.innerWidth - 0.5);
+    mouseY = (e.touches[0].clientY/window.innerHeight - 0.5);
+  }
+}, {passive:true});
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  if(!audioEl.paused && analyser) analyze();
+  else { bass*=0.95; mid*=0.95; treble*=0.95; amp*=0.95; }
+
+  const distAmt = params.dist * (0.15 + bass*params.bassSens*0.6);
+  const posAttr = icoMesh.geometry.attributes.position;
+  for(let i=0;i<posAttr.count;i++){
+    const ix=i*3;
+    const ox=basePositions[ix], oy=basePositions[ix+1], oz=basePositions[ix+2];
+    const len = Math.sqrt(ox*ox+oy*oy+oz*oz) || 1;
+    const nx=ox/len, ny=oy/len, nz=oz/len;
+    const n = noise3(nx*2, ny*2, nz*2, t*0.6);
+    const disp = 1 + n*distAmt*0.35 + mid*params.dist*0.25;
+    posAttr.array[ix] = ox*disp;
+    posAttr.array[ix+1] = oy*disp;
+    posAttr.array[ix+2] = oz*disp;
+  }
+  posAttr.needsUpdate = true;
+
+  const rotSpeed = params.rotSpeed*0.15 + treble*0.4;
+  icoMesh.rotation.y += 0.004*rotSpeed*60/60;
+  icoMesh.rotation.x = Math.sin(t*0.1)*0.15;
+  glowMesh.rotation.copy(icoMesh.rotation);
+  const glowScale = 0.9 + amp*0.6;
+  glowMesh.scale.setScalar(glowScale);
+  glowMat.opacity = 0.25 + amp*0.35;
+
+  particles.rotation.y += 0.0006*rotSpeed*60/60 + treble*0.002;
+  particles.material.opacity = 0.35 + treble*0.5;
+  particles.material.size = 0.018 + treble*0.03;
+
+  const px = mouseX*0.6, py = -mouseY*0.4;
+  camera.position.x += (px - camera.position.x)*0.04;
+  camera.position.y += (py + scrollParallax - camera.position.y)*0.04;
+  camera.lookAt(0,scrollParallax*0.3,0);
+
+  key.color.set(accent);
+  icoMat.emissive.set(accent);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* scroll parallax: move camera down / recede as user scrolls */
+ScrollTrigger.create({
+  trigger:'body', start:'top top', end:'bottom bottom', scrub:1,
+  onUpdate:self=>{ scrollParallax = -self.progress*3.2; }
+});
+
+/* ---------- GSAP REVEALS ---------- */
+if(!prefersReduced){
+  gsap.from('.eyebrow, .hero h1, .hero .sub, .hero .ctas', {
+    y:30, opacity:0, duration:1, stagger:0.12, ease:'power3.out', delay:0.2
+  });
+  gsap.from('.story h2, .story p, .story .tag', {
+    scrollTrigger:{trigger:'.story', start:'top 70%'},
+    y:24, opacity:0, duration:0.9, stagger:0.1, ease:'power2.out'
+  });
+  gsap.from('.panel', {
+    scrollTrigger:{trigger:'.studio', start:'top 75%'},
+    y:24, opacity:0, duration:0.8, stagger:0.1, ease:'power2.out'
+  });
+}
+
+/* ---------- UI: SLIDERS ---------- */
+function bindSlider(id, label, cb, fmt){
+  const el = document.getElementById(id);
+  const out = document.getElementById(label);
+  el.addEventListener('input', ()=>{
+    const v = parseFloat(el.value);
+    out.textContent = fmt ? fmt(v) : v.toFixed(1);
+    cb(v);
+  });
+}
+bindSlider('bass','v-bass', v=>params.bassSens=v);
+bindSlider('dist','v-dist', v=>params.dist=v);
+bindSlider('rot','v-rot', v=>params.rotSpeed=v);
+bindSlider('part','v-part', v=>{
+  params.partDensity=v;
+  scene.remove(particles);
+  particleCount = Math.floor(1800*v);
+  particles = buildParticles(particleCount);
+  scene.add(particles);
+});
+bindSlider('volume','v-vol', v=>{ audioEl.volume = v/100; }, v=>Math.round(v)+'%');
+audioEl.volume = 0.8;
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  const defaults = {bass:1, dist:1, rot:1, part:1, volume:80};
+  Object.entries(defaults).forEach(([id,val])=>{
+    const el = document.getElementById(id);
+    el.value = val;
+    el.dispatchEvent(new Event('input'));
+  });
+});
+
+/* ---------- PRESETS ---------- */
+document.querySelectorAll('.preset-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    params.preset = btn.dataset.preset;
+    if(params.preset==='nebula'){
+      icoMat.wireframe = false; icoMat.opacity=0.35; particles.material.size=0.02;
+    } else if(params.preset==='pulse'){
+      icoMat.wireframe = true; icoMat.opacity=0.95; particles.material.size=0.014;
+    } else if(params.preset==='vortex'){
+      icoMat.wireframe = true; icoMat.opacity=0.5; particles.material.size=0.03;
+    }
+  });
+});
+document.querySelector('.preset-btn[data-preset="pulse"]').click();
+
+/* ---------- COLOR SWATCHES ---------- */
+document.querySelectorAll('.swatch').forEach(sw=>{
+  sw.addEventListener('click', ()=>{
+    document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+    sw.classList.add('active');
+    accent = new THREE.Color(sw.dataset.color);
+  });
+});
+
+/* ---------- SPECTRUM BARS ---------- */
+const specEl = document.getElementById('spectrum');
+const BAR_COUNT = 32;
+for(let i=0;i<BAR_COUNT;i++){ const d=document.createElement('div'); d.style.height='2px'; specEl.appendChild(d); }
+const bars = specEl.children;
+function drawSpectrum(){
+  requestAnimationFrame(drawSpectrum);
+  if(!analyser || audioEl.paused){ for(let i=0;i<BAR_COUNT;i++) bars[i].style.height='2px'; return; }
+  analyser.getByteFrequencyData(freqData);
+  const step = Math.floor(freqData.length/BAR_COUNT);
+  for(let i=0;i<BAR_COUNT;i++){
+    const v = freqData[i*step]/255;
+    bars[i].style.height = Math.max(2, v*64)+'px';
+  }
+}
+drawSpectrum();
+
+/* ---------- AUDIO UI ---------- */
+const fileInput = document.getElementById('fileInput');
+const uploadZone = document.getElementById('uploadZone');
+const trackName = document.getElementById('trackName');
+const playBtn = document.getElementById('playBtn');
+const seek = document.getElementById('seek');
+const curTime = document.getElementById('curTime');
+const durTime = document.getElementById('durTime');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const errBox = document.getElementById('errBox');
+
+function fmtTime(s){
+  if(!isFinite(s)) return '0:00';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m+':'+String(sec).padStart(2,'0');
+}
+function showError(msg){
+  errBox.textContent = msg; errBox.style.display='block';
+  statusText.textContent = 'Error'; statusDot.classList.remove('live');
+}
+function clearError(){ errBox.style.display='none'; }
+
+uploadZone.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', ()=>{
+  const file = fileInput.files[0];
+  if(!file) return;
+  clearError();
+  const okTypes = ['audio/mpeg','audio/wav','audio/wave','audio/x-wav','audio/ogg','audio/mp3'];
+  if(!okTypes.includes(file.type) && !/\.(mp3|wav|ogg)$/i.test(file.name)){
+    showError('Unsupported format. Please use MP3, WAV or OGG.');
+    return;
+  }
+  if(file.size > 60*1024*1024){
+    showError('File is large (>60MB) — playback may be slow.');
+  }
+  const url = URL.createObjectURL(file);
+  audioEl.src = url;
+  trackName.textContent = file.name;
+  uploadZone.classList.add('active');
+  uploadZone.innerHTML = 'Replace track<br><span style="opacity:0.6">'+file.name+'</span>';
+  playBtn.disabled = false;
+  seek.disabled = false;
+  statusText.textContent = 'Loaded — ready to play';
+  try{ initAudioGraph(); }catch(e){ showError('Web Audio API unavailable in this browser.'); }
+});
+
+playBtn.addEventListener('click', async ()=>{
+  clearError();
+  try{
+    if(audioCtx && audioCtx.state==='suspended') await audioCtx.resume();
+    if(audioEl.paused){
+      await audioEl.play();
+      playBtn.textContent='❚❚';
+      statusDot.classList.add('live');
+      statusText.textContent='Playing — analyzing live audio';
+    } else {
+      audioEl.pause();
+      playBtn.textContent='▶';
+      statusDot.classList.remove('live');
+      statusText.textContent='Paused';
+    }
+  }catch(e){
+    showError('Playback failed — your browser may be blocking autoplay. Tap play again.');
+  }
+});
+
+audioEl.addEventListener('loadedmetadata', ()=>{ durTime.textContent = fmtTime(audioEl.duration); });
+audioEl.addEventListener('timeupdate', ()=>{
+  curTime.textContent = fmtTime(audioEl.currentTime);
+  if(audioEl.duration) seek.value = (audioEl.currentTime/audioEl.duration)*100;
+});
+audioEl.addEventListener('ended', ()=>{
+  playBtn.textContent='▶'; statusDot.classList.remove('live'); statusText.textContent='Finished';
+});
+audioEl.addEventListener('error', ()=>{ showError('Could not load this audio file.'); });
+
+seek.addEventListener('input', ()=>{
+  if(audioEl.duration) audioEl.currentTime = (seek.value/100)*audioEl.duration;
+});
+
+/* ---------- SUPABASE AUTH + PROJECTS ----------
+   To enable accounts, create a Supabase project, then paste your project
+   URL and anon key below. Run this SQL in the Supabase SQL editor first:
+
+   create table projects (
+     id uuid primary key default gen_random_uuid(),
+     user_id uuid references auth.users not null,
+     name text not null,
+     preset text not null,
+     settings jsonb not null,
+     is_public boolean default false,
+     created_at timestamptz default now(),
+     updated_at timestamptz default now()
+   );
+   alter table projects enable row level security;
+   create policy "select own" on projects for select using (auth.uid() = user_id);
+   create policy "insert own" on projects for insert with check (auth.uid() = user_id);
+   create policy "update own" on projects for update using (auth.uid() = user_id);
+   create policy "delete own" on projects for delete using (auth.uid() = user_id);
+*/
+const SUPABASE_URL = 'https://zmihxrtmjtpylfzelsjs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_qVoS3iQYP7nm3E4svhp54A_kHTt1xlr';
+const supabaseConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+let sb = null, currentUser = null;
+if(supabaseConfigured && window.supabase){
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+const authMsg = document.getElementById('authMsg');
+function setAuthMsg(text, kind){
+  authMsg.textContent = text;
+  authMsg.className = 'account-msg' + (kind ? ' '+kind : '');
+}
+function setAuthedUI(user){
+  currentUser = user;
+  document.getElementById('authForm').style.display = user ? 'none' : 'flex';
+  document.getElementById('authUser').style.display = user ? 'flex' : 'none';
+  if(user) document.getElementById('userEmail').textContent = user.email;
+  renderProjectList();
+}
+
+if(!supabaseConfigured){
+  setAuthMsg('Guest mode — add your Supabase URL & anon key in the script to enable accounts. Projects save to this browser only.', '');
+  document.getElementById('loginBtn').disabled = true;
+  document.getElementById('signupBtn').disabled = true;
+} else {
+  sb.auth.getSession().then(({data})=>{ setAuthedUI(data.session?.user || null); });
+  sb.auth.onAuthStateChange((_event, session)=>{ setAuthedUI(session?.user || null); });
+
+  document.getElementById('signupBtn').addEventListener('click', async ()=>{
+    const email = document.getElementById('authEmail').value.trim();
+    const pass = document.getElementById('authPass').value;
+    if(!email || pass.length<6){ setAuthMsg('Enter an email and a password of at least 6 characters.', 'err'); return; }
+    const {error} = await sb.auth.signUp({email, password:pass});
+    if(error) setAuthMsg(error.message, 'err');
+    else setAuthMsg('Check your email to confirm your account, then log in.', 'ok');
+  });
+  document.getElementById('loginBtn').addEventListener('click', async ()=>{
+    const email = document.getElementById('authEmail').value.trim();
+    const pass = document.getElementById('authPass').value;
+    if(!email || !pass){ setAuthMsg('Enter your email and password.', 'err'); return; }
+    const {error} = await sb.auth.signInWithPassword({email, password:pass});
+    if(error) setAuthMsg(error.message, 'err');
+    else setAuthMsg('', '');
+  });
+  document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    await sb.auth.signOut();
+    setAuthMsg('Logged out.', '');
+  });
+}
+
+document.getElementById('testConnBtn').addEventListener('click', async ()=>{
+  setAuthMsg('Testing connection...', '');
+  try{
+    const res = await fetch(SUPABASE_URL + '/auth/v1/health', {headers: {apikey: SUPABASE_ANON_KEY}});
+    const data = await res.json();
+    setAuthMsg('Connection OK: ' + JSON.stringify(data), 'ok');
+  }catch(e){
+    setAuthMsg('Raw fetch failed: ' + e.message, 'err');
+  }
+});
+
+document.getElementById('testLoginBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  setAuthMsg('Testing raw login POST...', '');
+  try{
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password: pass})
+    });
+    const data = await res.json();
+    setAuthMsg('Raw login response (' + res.status + '): ' + JSON.stringify(data).slice(0,200), res.ok ? 'ok' : 'err');
+  }catch(e){
+    setAuthMsg('Raw POST failed: ' + e.message, 'err');
+  }
+});
+
+/* ---------- PROJECTS (Supabase when logged in, else localStorage) ---------- */
+const PROJ_KEY = 'sonora_projects_v1';
+function loadLocalProjects(){
+  try{ return JSON.parse(localStorage.getItem(PROJ_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveLocalProjects(list){
+  try{ localStorage.setItem(PROJ_KEY, JSON.stringify(list)); }catch(e){ showError('Could not save — browser storage may be full or disabled.'); }
+}
+function currentSettings(){
+  return {
+    preset: params.preset,
+    color: document.querySelector('.swatch.active')?.dataset.color || '#8b6bff',
+    bass: document.getElementById('bass').value,
+    dist: document.getElementById('dist').value,
+    rot: document.getElementById('rot').value,
+    part: document.getElementById('part').value
+  };
+}
+function applySettings(s){
+  document.getElementById('bass').value = s.bass; document.getElementById('bass').dispatchEvent(new Event('input'));
+  document.getElementById('dist').value = s.dist; document.getElementById('dist').dispatchEvent(new Event('input'));
+  document.getElementById('rot').value = s.rot; document.getElementById('rot').dispatchEvent(new Event('input'));
+  document.getElementById('part').value = s.part; document.getElementById('part').dispatchEvent(new Event('input'));
+  const presetBtn = document.querySelector('.preset-btn[data-preset="'+s.preset+'"]');
+  if(presetBtn) presetBtn.click();
+  const swatch = document.querySelector('.swatch[data-color="'+s.color+'"]');
+  if(swatch) swatch.click();
+}
+function renderRows(list, onDelete){
+  const el = document.getElementById('projectList');
+  el.innerHTML = '';
+  if(list.length===0){
+    el.innerHTML = '<div style="font-size:0.78rem; color:var(--ink-dim);">No saved projects yet.</div>';
+    return;
+  }
+  list.forEach((p)=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:0.8rem;';
+    const label = document.createElement('span');
+    label.textContent = p.name + ' · ' + p.preset;
+    label.style.cursor = 'pointer';
+    label.addEventListener('click', ()=>applySettings(p.settings));
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.cssText = 'background:none; border:none; color:var(--ink-dim); cursor:pointer; font-size:0.8rem;';
+    del.addEventListener('click', ()=>onDelete(p));
+    row.appendChild(label); row.appendChild(del);
+    el.appendChild(row);
+  });
+}
+
+async function renderProjectList(){
+  if(supabaseConfigured && currentUser){
+    const {data, error} = await sb.from('projects').select('*').order('created_at', {ascending:false});
+    if(error){ setAuthMsg('Could not load projects: '+error.message, 'err'); return; }
+    renderRows(data.map(d=>({id:d.id, name:d.name, preset:d.preset, settings:d.settings})), async (p)=>{
+      const {error} = await sb.from('projects').delete().eq('id', p.id);
+      if(error) setAuthMsg(error.message, 'err');
+      renderProjectList();
+    });
+  } else {
+    const list = loadLocalProjects().slice().reverse();
+    renderRows(list, (p)=>{
+      saveLocalProjects(loadLocalProjects().filter(x=>x.id!==p.id));
+      renderProjectList();
+    });
+  }
+}
+
+document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
+  const nameInput = document.getElementById('projectName');
+  const name = nameInput.value.trim() || 'Untitled project';
+  const settings = currentSettings();
+  if(supabaseConfigured && currentUser){
+    const {error} = await sb.from('projects').insert({
+      user_id: currentUser.id, name, preset: params.preset, settings, is_public:false
+    });
+    if(error) setAuthMsg('Save failed: '+error.message, 'err');
+  } else {
+    const list = loadLocalProjects();
+    const now = new Date().toISOString();
+    list.push({id:Date.now().toString(36), name, preset:params.preset, settings, created:now, updated:now});
+    saveLocalProjects(list);
+  }
+  nameInput.value = '';
+  renderProjectList();
+});
+renderProjectList();
+
+/* ---------- SCREENSHOT EXPORT ---------- */
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  clearError();
+  try{
+    renderer.render(scene, camera);
+    const dataURL = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = 'sonora-' + Date.now() + '.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }catch(e){
+    showError('Screenshot export failed in this browser (canvas may be tainted or unsupported).');
+  }
+});
+
+/* WebGL fallback check */
+(function checkWebGL(){
+  try{
+    const c = document.createElement('canvas');
+    if(!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl')))){
+      throw new Error('no webgl');
+    }
+  }catch(e){
+    canvas.style.display='none';
+    document.body.style.background = 'linear-gradient(160deg,#111,#1c1420)';
+  }
+})();
+</script>
+</body>
+</html>
