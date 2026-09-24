@@ -4,7 +4,7 @@
 
 SONORA is a premium, immersive, audio-reactive 3D visualization studio built for the browser. Upload a track, and watch a distorted, glowing 3D form pulse, twist, and shimmer in real time — driven entirely by the actual frequency data of your audio, not pre-baked animation.
 
-🔗 **Live demo:** [sonora-ha-lemon.vercel.app](https://sonora-ha-lemon.vercel.app)
+🔗 **Live demo:** [sonora-ha-lemon.vercel.app](https://sonora-alpha-lemon.vercel.app)
 
 ---
 
